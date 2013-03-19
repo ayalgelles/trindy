@@ -204,31 +204,32 @@ console.log = function() {
 
 (function(){
 
-$.parse.init({
-    app_id :"exDoSR5xsEpIcJqn63P3hJK1sZ5NvnpYLP3cy22Q", // <-- enter your Application Id here 
-    rest_key : "AL2FCyhzMFUmZPyitSmQXt6STcJJot7ttG6BmsUw" // <--enter your REST API Key here    
-});
-
-var mon = {};
- $.parse.get('monitor', {limit: 1000, order: '-createdAt'}, function(r) {
-   $.each(r.results, function(){
-   mon[this.vid] = 1;
-   });
- });
-
-
-
-monitor = function(vid, tag, from) {
-    var newobj = {tag: tag, vid: vid, from: (from || '')}
-    if (mon[vid]) {
-	return;
-    }
-    
-    mon[vid] = 1;
-    $.parse.post("monitor", newobj, function(y) {
-	console.log('will monitor', newobj, y);    
+    $.parse.init({
+	app_id :"exDoSR5xsEpIcJqn63P3hJK1sZ5NvnpYLP3cy22Q", // <-- enter your Application Id here 
+	rest_key : "AL2FCyhzMFUmZPyitSmQXt6STcJJot7ttG6BmsUw" // <--enter your REST API Key here    
     });
-};
+
+    var mon = {};
+    $.parse.get('monitor', {limit: 1000, order: '-createdAt'}, function(r) {
+	$.each(r.results, function(){
+	    mon[this.vid] = 1;
+	});
+    });
+
+
+
+    monitor = function(vid, tag, from) {
+	var newobj = {tag: tag, vid: vid, from: (from || '')}
+	if (mon[vid]) {
+	    process.stdout.write('|X|' + newobj.vid);
+	    return;
+	}
+	
+	mon[vid] = 1;
+	$.parse.post("monitor", newobj, function(y) {
+	    process.stdout.write('|M|' + newobj.vid);
+	});
+    };
 
 })();
 
@@ -246,178 +247,180 @@ monitor = function(vid, tag, from) {
   };
 
 
- fetchFromPipe = function(tracks) {
+fetchFromPipe = function(tracks) {
     var hash = [];
-   
+    
     var vidreadiez = [];
-
+    //     console.log('>> in the tracks', tracks.length);
     $.each(tracks, function(trki, trk) {
-      
-      var cleantrk = clean(trk.name);
-      if (cleantrk === 'length') {
-        return;
-      }
-
-      var vidready = $.Deferred();
-      vidreadiez.push(vidready);
-
-      trk.artist = trk.artist.replace(' / ', ' & ').replace(/&/gim, 'and');
-
-      var song = cleantrk.length > 30 ? trk.name : (trk.artist.toLowerCase() + ' ' + trk.name.toLowerCase());
-      if (window.accurate) {
-        song += ' ' + trk.album;
-      }
-      
-      var req = $.getJSON('https://gdata.youtube.com/feeds/api/videos?q=' + encodeURIComponent(song) + '&safeSearch=none&orderby=relevance&max-results=15&v=2&alt=json&callback=?', function(e) {
-
-        if (!e.feed.entry || e.feed.entry.length === 0) {
-    //					   console.log('empty. resolving');
-	  vidready.resolve();
-	  return;
-        }
-
-        var lessgood = {};
-
-        $.each(e.feed.entry, function(i, entry){
-	  if (vidready.state() === 'resolved') {
-	    return;
-	  }
-
-	  var cleanYTitle = window.clean(entry.title.$t);
-	  var cleanartist = window.clean(trk.artist);
-
-	  var id = entry.id.$t.split(':').reverse()[0];
-            var vidobj = {
-		from: trk.from,
-		order: trki,
-		id: id,
-		who_shared: 'takashirgb',
-		fromindie: true,
-		player: 'yt',
-		name: trk.name,
-		artist: trk.artist,
-		albums: trk.album,
-		viewCount: entry.yt$statistics && entry.yt$statistics.viewCount};
-
-	  function nogood(what, score, force) {
-            var rwhat = new RegExp(what);
-	    if ((entry.title.$t.toLowerCase().match(rwhat) ||
-                 entry.media$group.media$description.$t.toLowerCase().match(rwhat)) &&
-                !trk.name.toLowerCase().match(rwhat)) {
-
-              var already = lessgood[cleantrk];
-              if (!already || score > already.s || force){
-                lessgood[cleantrk] = {s: score || 0, o: vidobj};   
-              }
-
-	     /* console.log('its a ' + what, 'srch:',
-			  song,
-			  'you said: ',
-			  cleanartist,
-			  cleantrk,
-			  'tube said',
-			  cleanYTitle);
-	      return true;*/
+	try {
+	    console.log(trk);      
+	    var cleantrk = clean(trk.name);
+	    if (cleantrk === 'length') {
+		return;
 	    }
-	    return false;
-	  };
-         
 
-	  var superclean = clean(entry.title.$t, true).replace(cleantrk, '')
-	    .replace(cleanartist, '')
-	    .replace('new', '')
-	    .replace('album', '')
-	    .replace('lyrics','')
-	    .replace('hd','')
-	    .replace(/\d+p/gim,'')
-	    .replace(window.clean(trk.album), '');
+	    var vidready = $.Deferred();
+	    vidreadiez.push(vidready);
+
+	    trk.artist = trk.artist.replace(' / ', ' & ').replace(/&/gim, 'and');
+
+	    var song = cleantrk.length > 30 ? trk.name : (trk.artist.toLowerCase() + ' ' + trk.name.toLowerCase());
+	    //      	  console.log('>> in the pipes', song);
+	    var req = $.getJSON('https://gdata.youtube.com/feeds/api/videos?q=' + encodeURIComponent(song) + '&safeSearch=none&orderby=relevance&max-results=15&v=2&alt=json&callback=?', function(e) {
+		//	  console.log('<< in the pipes', song);
+		if (!e.feed.entry || e.feed.entry.length === 0) {
+		    //					   console.log('empty. resolving');
+		    vidready.resolve();
+		    return;
+		}
+
+		var lessgood = {};
+
+		$.each(e.feed.entry, function(i, entry){
+		    if (vidready.state() === 'resolved') {
+			return;
+		    }
+
+		    var cleanYTitle = clean(entry.title.$t);
+		    var cleanartist = clean(trk.artist);
+
+		    var id = entry.id.$t.split(':').reverse()[0];
+		    var vidobj = {
+			from: trk.from,
+			order: trki,
+			id: id,
+			who_shared: 'takashirgb',
+			fromindie: true,
+			player: 'yt',
+			name: trk.name,
+			artist: trk.artist,
+			albums: trk.album,
+			viewCount: entry.yt$statistics && entry.yt$statistics.viewCount};
+
+		    function nogood(what, score, force) {
+			var rwhat = new RegExp(what);
+			if ((entry.title.$t.toLowerCase().match(rwhat) ||
+			     entry.media$group.media$description.$t.toLowerCase().match(rwhat)) &&
+			    !trk.name.toLowerCase().match(rwhat)) {
+
+			    var already = lessgood[cleantrk];
+			    if (!already || score > already.s || force){
+				lessgood[cleantrk] = {s: score || 0, o: vidobj};   
+			    }
+
+			    /* console.log('its a ' + what, 'srch:',
+			       song,
+			       'you said: ',
+			       cleanartist,
+			       cleantrk,
+			       'tube said',
+			       cleanYTitle);
+			       return true;*/
+			}
+			return false;
+		    };
+		    
+
+		    var superclean = clean(entry.title.$t, true).replace(cleantrk, '')
+			.replace(cleanartist, '')
+			.replace('new', '')
+			.replace('album', '')
+			.replace('lyrics','')
+			.replace('hd','')
+			.replace(/\d+p/gim,'')
+			.replace(clean(trk.album), '');
 
 
-	  if (superclean.length > 20){
-	    /*console.log('too many guys', 'srch:',
-		        song,
-		        'you said: ',
-		        cleanartist,
-		        cleantrk,
-		        'tube said',
-		        cleanYTitle);*/
-	    return;
+		    if (superclean.length > 20){
+			/*console.log('too many guys', 'srch:',
+		          song,
+		          'you said: ',
+		          cleanartist,
+		          cleantrk,
+		          'tube said',
+		          cleanYTitle);*/
+			return;
 
-	  }
+		    }
 
-	  if (cleanYTitle.indexOf(cleantrk.replace(/s$/gim, '')) === -1) {
-	   /* console.log('no title.', 'srch:',
-		        song,
-		        'you said: ',
-		        cleantrk,
-		        'tube said',
-		        cleanYTitle);*/
-	    return;
-	  }
+		    if (cleanYTitle.indexOf(cleantrk.replace(/s$/gim, '')) === -1) {
+			/* console.log('no title.', 'srch:',
+		           song,
+		           'you said: ',
+		           cleantrk,
+		           'tube said',
+		           cleanYTitle);*/
+			return;
+		    }
 
-	  if (cleanYTitle.indexOf(cleanartist) === -1) {
-	    var nothing = true;
-	    $.each(entry.category,function(i, tag){
-	      if (clean(tag.term).indexOf(cleanartist) !== -1){
-	        nothing = false;
-	      }
-	    });
-	    
-	    if (nothing && cleantrk.length < 10) {
-	   /*   console.log('no artist.', 'srch:',
-			  song,
-			  'you said: ',
-			  cleanartist,
-			  cleantrk,
-			  'tube said',
-			  cleanYTitle);*/
-	      return;
-        
-	    }
-	  }
+		    if (cleanYTitle.indexOf(cleanartist) === -1) {
+			var nothing = true;
+			$.each(entry.category,function(i, tag){
+			    if (clean(tag.term).indexOf(cleanartist) !== -1){
+				nothing = false;
+			    }
+			});
+			
+			if (nothing && cleantrk.length < 10) {
+			    /*   console.log('no artist.', 'srch:',
+				 song,
+				 'you said: ',
+				 cleanartist,
+				 cleantrk,
+				 'tube said',
+				 cleanYTitle);*/
+			    return;
+			    
+			}
+		    }
 
                     //nogood('version')
-	  if (nogood('@ the', 2) || nogood('at the', 1) || nogood('from the basement', 1) ||
-              nogood('acoustic', 1) || nogood('thumbs') || nogood('concert') || nogood('explains') ||
-              nogood('teaser') || nogood('session', 1) || nogood('cover') || nogood('remix') ||
-	      nogood('live', 1) || nogood('perform', 2) || nogood('version', 3) ||
-	      nogood('philhar') || nogood('\\d{1,2}[\\.-/]\\d{1,2}', 0, true)) {
-	    return;
-	  }
+		    if (nogood('@ the', 2) || nogood('at the', 1) || nogood('from the basement', 1) ||
+			nogood('acoustic', 1) || nogood('thumbs') || nogood('concert') || nogood('explains') ||
+			nogood('teaser') || nogood('session', 1) || nogood('cover') || nogood('remix') ||
+			nogood('live', 1) || nogood('perform', 2) || nogood('version', 3) ||
+			nogood('philhar') || nogood('\\d{1,2}[\\.-/]\\d{1,2}', 0, true)) {
+			return;
+		    }
 
-          if (entry.media$group.media$content[0].duration < 40) {
-              return;
-          }
-
-
-	  vidready.resolve(vidobj);
-	  return;
-
-        });
-
-        var lesskeys = Object.keys(lessgood);
-        if (vidready.state() !== 'resolved' && lesskeys.length) {
-          vidready.resolve(lessgood[lesskeys[0]].o);
-        }
-
-	vidready.resolve();   
-
-      });
-
-      $.when(req).fail(function() {
-        vidready.resolve();
-      });
+		    if (entry.media$group.media$content[0].duration < 40) {
+			return;
+		    }
 
 
+		    vidready.resolve(vidobj);
+		    return;
 
-      setTimeout(
+		});
 
-        function() {
-	  vidready.resolve();
-        }, 5000);
+		var lesskeys = Object.keys(lessgood);
+		if (vidready.state() !== 'resolved' && lesskeys.length) {
+		    vidready.resolve(lessgood[lesskeys[0]].o);
+		}
+
+		vidready.resolve();   
+
+	    });
+
+	    $.when(req).fail(function() {
+		vidready.resolve();
+	    });
+
+
+
+	    setTimeout(
+
+		function() {
+		    vidready.resolve();
+		}, 5000);
+	}
+	catch (x) {
+	    console.log('track err', x);
+	}
     });
     return vidreadiez;
-  };
+};
 
 ddmmyy = function (del, d) {
   del = del || '-';
@@ -559,10 +562,10 @@ $.each(urlz, function (i, u) {
       $.get('http://www.feedly.com/search.v2/feeds.v2?q=' + encodeURIComponent(u), function (res) {
 
         res = JSON.parse(res);
-        console.log('got feedly feed', res);
         if (res.results && res.results.length) {
           var ents = [];
           $.each(res.results, function (i, feed) {
+              console.log('got feedly feed', res.hint, feed.title);
             if (i > 6) {
               return null;
             }
@@ -634,7 +637,7 @@ $.when.apply($, feedz).done(function () {
           }
 
           var vlinks = regit(/(http[s]*\:\/\/([^'"]*?(youtu|vimeo)[^'"]*?(\d{7,9}|(embed\/|v.|be\/).{11})[^'"]*?))["']/gim, e.content);
-          //console.log('links in ', e.title, vlinks);
+//          console.log('links in ', e.title, vlinks.length);
           if (vlinks.length) {
             $.each(vlinks, function (i, link) {
               var box = getId(link['1']);
@@ -680,6 +683,7 @@ $.when.apply($, feedz).done(function () {
     });
     
     var tracks = [];
+      console.log('hints', hints.length);
     $.each(hints, function (i, box) {
 	  var m =/^(stream|video|listen|listen\sto|mp3|premiere|new\smusic)*:*(.*?)[-–:][\s“"]*(.*?)[\s”"]*$/gim.exec(box.hint);
 	  if (m && m[2] && m[3] && m[3].length <= 50 && m[2].length <= 50) {
@@ -693,7 +697,9 @@ $.when.apply($, feedz).done(function () {
     });
       
       if (params['pipe'] == 'true') {
+	  console.log('from pipe', tracks.length);
 	  $.when.apply($, fetchFromPipe(tracks)).done(function(){
+	      console.log('after pipe', arguments.length);
 	      var rez = $.map(arguments, function(a){
 		  if (a) {
 		      monitor(a.id, tag, a.from)
@@ -703,19 +709,25 @@ $.when.apply($, feedz).done(function () {
 	      
 	  });
       }
-    
-    $.each(rest, function (i, box) {
-      var u = box.u;
-      var feedu = box.feed;
-      box = box.box;
-      lastWatched = lastWatched || box.id;
-      playlist.push(JSON.stringify(box));
-     
-      var e = hash[box.id];
-      var lid = 'li-' + e.title.replace(/[^\w]/gi, '');
-     monitor(box.id, tag, feedu)
-      
-    });
+
+      console.log('total links', rest.length);
+
+      $.each(rest, function (i, box) {
+	  try {
+	      var u = box.u;
+	      var feedu = box.feed;
+	      box = box.box;
+	      lastWatched = lastWatched || box.id;
+	      playlist.push(JSON.stringify(box));
+	      
+	      var e = hash[box.id];
+	      var lid = 'li-' + e.title.replace(/[^\w]/gi, '');
+	      monitor(box.id, tag, feedu)
+	  }
+	  catch(x){
+	      console.log('err', x);
+	  }
+      });
     
   });
 });
@@ -723,3 +735,7 @@ $.when.apply($, feedz).done(function () {
 
 getvidstomon();
 setInterval(getvidstomon, 1000 * 60 * 60 * 2)
+
+process.on('uncaughtException', function(err) {
+    console.log('Caught exception: ' + err);
+});
