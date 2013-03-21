@@ -1,0 +1,17 @@
+<head>
+  <title>monkeychat</title>
+</head>
+
+<body>
+  {{loginButtons}}
+  {{> chat}}
+</body>
+
+<template name="chat">
+  <input type="text" />
+  {{#each messages}}
+  <div class="panel">
+    <span><img src="https://graph.facebook.com/{{from}}/picture?type=square" /></span><span>{{msg}}</span>
+  </div>
+  {{/each}}
+</template>
