@@ -605,6 +605,7 @@ $.when.apply($, feedz).done(function () {
       var def = $.Deferred();
       ready.push(def);
       feed = feed.replace('feed://', 'http://');
+	console.log('loading feed...', feed);
       $.getJSON('http://ajax.googleapis.com/ajax/services/feed/load?num=50&v=1.0&q=' + encodeURIComponent(feed) + '&callback=?', function (res) {
         console.log('loaded feed', feed);
         var boxes = [];

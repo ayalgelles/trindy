@@ -220,22 +220,26 @@ trace = function(v, tag, from){
   rating: v.gd$rating}
   
   $.parse.post("trends", newobj, function(y) {
-      //console.log('trended', y);
+      process.stdout.write('M' + newobj.vid + '|')
   });
 }
   
 trendit = function(vid, tag, from) {
-  if (already[vid]){
-    return;
-  }
-  already[vid] = 1;
-  $.get('https://gdata.youtube.com/feeds/api/videos/' + vid + '?v=2&alt=json', function(r) {
-    try {
-    trace(r.entry, tag, from)
+    if (already[vid]){
+	process.stdout.write('X|')
+	return;
     }
-    catch(x) {
-    }
-  });
+
+    already[vid] = 1;
+    $.get('http://gdata.youtube.com/feeds/api/videos/' + vid + '?v=2&alt=json', function(r) {
+	try {
+	    trace(r.entry, tag, from)
+	}
+	catch(x) {
+	}
+    }).fail(function(){
+	process.stdout.write(' *YTE' + vid + '* ')
+    });
 }
  
 deleteq = function(cls, q, hook) {
@@ -261,29 +265,30 @@ monitor = function() {
 	deleteq('trends', {vid: o.vid})
     });
   
-  $.parse.get('monitor', {limit: 1000, order: '-createdAt'}, function(r) {
-    var monmore = function() {
-      if (start > r.results.length) {
-        clearTimeout(donext);
-        return;
-      }
-      
-      console.log('chunk', start);
-     $.each(r.results, function(i) {
-      if (i < start || i > start + 10) {
-        return;
-      }
-      trendit(this.vid, this.tag, this.from);
-    });
-    start += 10;
-    donext = setTimeout(monmore, 10000);
-    }
-    monmore();
-  })
+    $.parse.get('monitor', {limit: 1000, order: '-createdAt'}, function(r) {
+	var monmore = function() {
+	    if (start > r.results.length) {
+		clearTimeout(donext);
+		return;
+	    }
+	    
+	    console.log('chunk', start, r.results.length);
+	    $.each(r.results, function(i) {
+		if (i < start || i > start + 10) {
+		    return;
+		}
+		trendit(this.vid, this.tag, this.from);
+	    });
+	    start += 10;
+	    donext = setTimeout(monmore, 10000);
+	}
+	monmore();
+    })
 }
 
 var already = {};
 
+monitor();
 setInterval(function(){
   already = {};
   monitor();
